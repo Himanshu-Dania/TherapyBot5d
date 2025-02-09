@@ -21,7 +21,7 @@ class Chatbot:
 
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-pro",
-            api_key="AIzaSyCcI71tH5DeRYKfD7D0gDYgPpqfrE_VgS0",
+            api_key=os.getenv("GOOGLE_API_KEY1"),
         )
         self.history = []
         print("Initialised\n")
