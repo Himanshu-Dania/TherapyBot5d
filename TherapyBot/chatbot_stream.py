@@ -11,6 +11,7 @@ import os
 import torch
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
+from langchain_core.prompts import PromptTemplate
 
 
 class Chatbot:
@@ -23,38 +24,10 @@ class Chatbot:
             model="gemini-1.5-pro",
             api_key=os.getenv("GOOGLE_API_KEY1"),
         )
-        self.history = []
-        print("Initialised\n")
-
-    async def emotion_detection(self, query):
-        """
-        Detects the emotion in the input query using the 'SamLowe/roberta-base-go_emotions' model.
-        """
-        print("Emotion\n")
-        results = self.emotion_model(query, top_k=3)
-
-        return json.dumps(results)
-
-    async def gemini(self, query):
-        """
-        Call LLM with the constructed prompt and return output with streaming.
-
-        Args:
-            self: The class instance (accessing other methods)
-            query: The user's input query
-
-        Returns:
-            A string representing the LLM response with streaming.
-        """
-
-        emotion_task = self.emotion_detection(query)
-
-        emotion_result = await asyncio.gather(emotion_task)
-
-        prompt = f"""
+        prompt = """
         You are a highly empathetic and skilled mental health assistant, trained to provide thoughtful and personalized support. Analyze the user's query and craft a compassionate, actionable response using the following inputs:
 
-        **Chat History:** "{[msg['parts'] for msg in self.history[-15:]]}"
+        **Chat History:** "{history}"
         **User Input Query:** "{query}"
 
         **Detected Emotion:** {emotion_result}  
@@ -94,15 +67,48 @@ class Chatbot:
         
         Now, based on the information above, generate a response that fulfills the user's emotional and mental health needs.
         """
+        self.prompt=PromptTemplate.from_template(prompt)
+        self.chain = self.prompt | self.llm
+        self.history = []
+        print("Initialised\n")
+
+    async def emotion_detection(self, query):
+        """
+        Detects the emotion in the input query using the 'SamLowe/roberta-base-go_emotions' model.
+        """
+        print("Emotion\n")
+        results = self.emotion_model(query, top_k=3)
+
+        return results
+
+    async def gemini(self, query):
+        """
+        Call LLM with the constructed prompt and return output with streaming.
+
+        Args:
+            self: The class instance (accessing other methods)
+            query: The user's input query
+
+        Returns:
+            A string representing the LLM response with streaming.
+        """
+
+        emotion_task = self.emotion_detection(query)
+
+        emotion_result = await asyncio.gather(emotion_task)
 
         print("Processing with LLM...")
 
-        self.history.append({"role": "user", "parts": {"text": query}})
-
+        history_summary = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in self.history[-15:]])
+        print(f" Query: {query}\nEmotion: {emotion_result}\nHistory: {history_summary}\n")
+        response_text = ""
         try:
-            async for token in self.llm.astream(prompt):
+            async for token in self.chain.astream({"query": query, "emotion_result": emotion_result, "history": history_summary}):
                 yield token.content  # Yield each token's content as it is generated
-                # print(token.content, end="", flush=True)
+                response_text += token.content
+
+            self.history.append({"role": "user", "content": query})
+            self.history.append({"role": "assistant", "content": response_text})  # Store chatbot response
         except Exception as e:
             yield f"Error: {str(e)}"
 
@@ -110,7 +116,7 @@ class Chatbot:
 async def __main__():
     model = Chatbot()
     while True:
-        query = input(">> User: ")
+        query = input("\n>> User: ")
         if query == "exit":
             break
         print(">> Pet: ")
