@@ -7,7 +7,8 @@ from langchain.schema import HumanMessage
 import json
 from typing import List
 from utils import Task, TaskSchema
-
+from langchain_core.prompts import PromptTemplate
+from utils import json_task
 global load_balancer
 load_balancer = 0
 load_balancer_lock = asyncio.Lock()
@@ -27,15 +28,10 @@ class Taskbot:
             i+=1
         
         print(f"Initialised Taskbot with {i}\n")
-
-    async def gemini(self, reason, tasks: List[Task]):
-        global load_balancer
-        query = json.dumps(f"""
-            "reason_for_task_creation": {reason},
-            "existing_tasks": {tasks}
-        """)
-
-        prompt = f"""
+        
+        self.prompt_template = PromptTemplate(
+            input_variables=["reason", "tasks_json"],
+            template="""
         You are an intelligent assistant designed to create personalized therapy tasks for users. You receive the following information in JSON format:
 
         {{
@@ -91,45 +87,57 @@ class Taskbot:
 
         Generate tasks based on the inputs provided. Make the tasks engaging, personalized, and aligned with the therapy goals.
 
-        Input Query:
-        {query}
-        """
-        
-        print("Processing with LLM...")
-        attempts = len(self.llms)  # Max retries = number of available LLMs
-        for _ in range(attempts):  # Try each LLM once
-            async with load_balancer_lock:  # Lock to prevent race conditions
-                assigned_index = load_balancer  # Assign current LLM index
-                load_balancer = (load_balancer + 1) % len(self.llms)  # Move to next LLM
+        **Input Data:**
+            {{
+                "reason_for_task_creation": "{reason}",
+                "existing_tasks": {tasks_json}
+            }}
+        """)
 
-            print(f"Trying LLM index: {assigned_index}")
+    async def gemini(self, reason, tasks: List[Task]):
+        global load_balancer
+        tasks_json = json.dumps([task.model_dump() for task in tasks], ensure_ascii=False, indent=2)
+        # json.dumps([task.model_dump_json(indent=2) for task in tasks], indent=2)
+        print(f"tasks_json: {tasks_json}\nReason: {reason}")
+        print(type(tasks_json))
+        attempts = len(self.llms)  # Number of retries = number of available LLMs
+        for _ in range(attempts):  
+            async with load_balancer_lock:  
+                assigned_index = load_balancer  
+                load_balancer = (load_balancer + 1) % len(self.llms)  
+
             try:
-                result = await self.llms[assigned_index].ainvoke(prompt)  # Call LLM
-                return result.content  # If success, return response
+                llm_chain = self.prompt_template | self.llms[assigned_index]
+
+                result = llm_chain.invoke(input={"reason": reason, "tasks_json": tasks_json})
+                print(f"Result: {result}")
+                return result.content.strip()  
             except Exception as e:
-                print(f"LLM index {assigned_index} failed with error: {str(e)}")  # Log error and retry
+                print(f"LLM index {assigned_index} failed: {str(e)}")  
 
-        return "Error: All LLMs failed to process the request."  # If all fail, return an error message
-
+        return "Error: All LLMs failed to process the request."
 
 async def __main__():
     model = Taskbot()
-    result, result2, result3 = await asyncio.gather(
-        model.gemini("To help User get used to rejections and failures.", []),
-        model.gemini("To reduce stress and anxiety", []),
-        model.gemini("To help User build a daily mindfulness habit.", []),
+    tasks = [
+        json_task("Morning Gratitude", "checkmark", reason="Alice needs to reaffirm their love for themself",difficulty="easy", completed=True),
+        json_task("Meditation for 10 minutes", "slider", reason="Alice struggles with overthinking", completed=30, difficulty="easy")
+    ]
+    result = await model.gemini("To help User get used to rejections and failures.", tasks)
+        # model.gemini("To reduce stress and anxiety", []),
+        # model.gemini("To help User build a daily mindfulness habit.", []),
         # model.gemini("To help User get used to rejections and failures.", []),
         # model.gemini("To reduce stress and anxiety", []),
         # model.gemini("To help User build a daily mindfulness habit.", []),
         # model.gemini("To help User get used to rejections and failures.", []),
         # model.gemini("To reduce stress and anxiety", []),
         # model.gemini("To help User build a daily mindfulness habit.", [])
-    )
+    
 
     # Print results
-    print("Result 1:", result.strip())
-    print("Result 2:", result2.strip())
-    print("Result 3:", result3.strip())
+    print("Result 1:", result)
+    # print("Result 2:", result2.strip())
+    # print("Result 3:", result3.strip())
 
 
 if __name__ == "__main__":
