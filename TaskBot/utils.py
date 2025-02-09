@@ -6,6 +6,7 @@ class Task(BaseModel):
     task_name: str = Field(..., description="A short and descriptive name for the task.")
     task_type: str = Field(..., description="Type of task: 'discrete', 'slider', or 'checkmark'.")
     reason_for_task_creation: str = Field(..., description="A reason or message explaining why this task is being created.")
+    description: str = Field(..., description="A detailed description of the task.")
     completed: Union[int, float, bool] = Field(
         ...,
         description="Indicates the completed status of the task (e.g., '0', '50', '100' for percentage, or 'True/False')."
@@ -18,8 +19,6 @@ class Task(BaseModel):
     recurring: int = Field(0, description="Number of hours before the task is repeated.")
 
 class TaskSchema(BaseModel):
-    user_name: str = Field(..., description="The name of the user for whom the task is being created.")
-    description: str = Field(..., description="A detailed description of the tasks.")
     task: List[Task] = Field(..., description="A list of tasks to be completed.")
     
 def json_task(task_name, task_type, reason, difficulty="easy", completed=None, recurring=0, total_count=None):
