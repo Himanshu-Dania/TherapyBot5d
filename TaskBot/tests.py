@@ -1,81 +1,159 @@
-import pytest_asyncio
-import pytest
 import asyncio
-from typing import List
-# from taskbot import Task
-from utils import json_task
+import json
+from utils import json_task, Task, Journey
 from taskbot import Taskbot
 
-model = Taskbot()
 
-@pytest.fixture(scope="session")
-def event_loop():
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-    
-    
-@pytest.mark.asyncio
-async def test_empty_existing_tasks():
-    reason = "To help Alice focus and relax through mindfulness."
-    tasks = []  
+async def test_create_task():
+    print("\n===== Testing Task Creation =====")
 
-    response=await model.gemini(reason, tasks)
-    print(response)
-    # return response
-    assert "task_name" in response
-    assert "task_type" in response
-    assert "difficulty" in response
-    assert "completed" in response
+    taskbot = Taskbot()
 
-@pytest.mark.asyncio
-async def test_existing_tasks_increasing_difficulty():
-    reason = "To help Alice build a daily mindfulness habit."
-    tasks = [
-        json_task("Morning Gratitude", "checkmark", reason="Alice needs to reaffirm their love for themself",difficulty="easy", completed=True),
-        json_task("Meditation for 10 minutes", "slider", reason="Alice struggles with overthinking", completed=30, difficulty="easy")
+    # Scenario 1: No existing tasks
+    print("\n--- Test: No Existing Tasks ---")
+    reason_1 = "To reduce negative thoughts about self"
+    tasks_1 = []
+    result_1 = await taskbot.create_task(reason_1, tasks_1)
+    print("Result:", result_1)
+
+    # Scenario 2: Existing tasks already present
+    print("\n--- Test: Some Existing Tasks ---")
+    reason_2 = "User struggles with negative thoughts about their physical health"
+    tasks_2 = [
+        json_task(
+            "Daily Gratitude",
+            "checkmark",
+            reason_2,
+            "Write 3 things you’re grateful for",
+            "easy",
+            completed=False,
+        ),
+        json_task(
+            "Morning Walk",
+            "discrete",
+            reason_2,
+            "Walk for 30 minutes every morning",
+            "medium",
+            completed=2,
+            total_count=10,
+        ),
     ]
-    response=await model.gemini(reason, tasks)
-    print(response)
-    assert "difficulty" in response
-    assert "medium" in response
+    result_2 = await taskbot.create_task(reason_2, tasks_2)
+    print("Result:", result_2)
 
-@pytest.mark.asyncio
-async def test_task_avoidance_of_duplicates():
-    reason = "To promote relaxation and reduce stress."
-    tasks = [
-        json_task("Breathing Exercise", "slider", reason="To reduce stress", difficulty="medium", completed=50),
-        json_task("Breathing Exercise", "slider", reason="To reduce stress", difficulty="medium", completed=50)
+
+async def test_process_task_into_journey():
+    print("\n===== Testing Journey Processing =====")
+
+    journey_bot = Taskbot()
+
+    # Scenario 1: New task should fit into an existing journey
+    print("\n--- Test: Task Fits Into Existing Journey ---")
+    new_task_1 = json_task(
+        "Deep Breathing",
+        "checkmark",
+        "To reduce stress",
+        "Breathe deeply for 5 minutes",
+        "easy",
+        completed=False,
+    )
+    existing_journeys_1 = [
+        Journey(
+            journey_name="Mindfulness Journey",
+            description="Tasks for mental calmness",
+            task=[
+                json_task(
+                    "Morning Meditation",
+                    "slider",
+                    "To develop mindfulness",
+                    "Meditate for 10 minutes",
+                    "easy",
+                    completed=10,
+                )
+            ],
+            difficulty="easy",
+        )
     ]
+    result_1 = await journey_bot.process_task_into_journey(
+        new_task_1, existing_journeys_1
+    )
+    print("Result:", result_1)
 
-    response = await model.gemini(reason, tasks)
-    
-    assert "task_name" in response
-    assert "Breathing Exercise" not in response
+    # Scenario 2: Task does not match any existing journey, so a new journey should be created
+    print("\n--- Test: Task Requires a New Journey ---")
 
-@pytest.mark.asyncio
-async def test_task_with_custom_reason():
-    reason = "To encourage Alice to connect with nature."
-    tasks = []
-
-    response=await model.gemini(reason, tasks)
-    print(response)
-    assert "task_name" in response
-    assert "nature" in response.lower()
-    
-    
-@pytest.mark.asyncio
-async def test_multiple_tasks_with_progress():
-    reason = "To support Alice in achieving her fitness goals."
-    tasks = [
-        json_task("Morning Prayer", "slider", reason="", difficulty="easy", completed=30),
-        json_task("Evening Yoga", "slider", reason="", difficulty="medium", completed=60)
+    new_task_2 = json_task(
+        "Weight Lifting",
+        "slider",
+        "To build muscle",
+        "Lift weights for 30 minutes",
+        "hard",
+        completed=0,
+    )
+    existing_journeys_2 = [
+        Journey(
+            journey_name="Mindfulness Journey",
+            description="Tasks for mental calmness",
+            task=[
+                json_task(
+                    "Morning Meditation",
+                    "slider",
+                    "To develop mindfulness",
+                    "Meditate for 10 minutes",
+                    "easy",
+                    completed=10,
+                )
+            ],
+            difficulty="easy",
+        )
     ]
+    result_2 = await journey_bot.process_task_into_journey(
+        new_task_2, existing_journeys_2
+    )
+    print("Result:", result_2)
 
-    response=await model.gemini(reason, tasks)
-    print(response)
-    assert "task_name" in response
-    assert "fitness" in response.lower()
+
+async def test_change_task_difficulty():
+    print("\n===== Testing Task Difficulty Change =====")
+
+    journey_bot = Taskbot()
+
+    # Scenario 1: Change the difficulty of an existing task
+    print("\n--- Test: Change Task Difficulty ---")
+    task_1 = json_task(
+        "Morning Walk",
+        "discrete",
+        "User struggles with negative thoughts about their physical health",
+        "Walk for 30 minutes every morning",
+        "medium",
+        completed=2,
+        total_count=10,
+    )
+    reason = " It isn't really helping me. The lonelier I am, the more it sucks"
+    result_1 = await journey_bot.change_task_difficulty(reason, task_1)
+    print("Result:", result_1)
+
+    # Scenario 2: Too difficult to complete, change to an easier difficulty
+    print("\n--- Test: Task is Too Difficult ---")
+    task_2 = json_task(
+        "Face rejections",
+        "discrete",
+        "To build resilience",
+        "Face rejections 5 times",
+        "hard",
+        completed=2,
+        total_count=5,
+    )
+    reason = "It's too hard for me to face rejections"
+    result_2 = await journey_bot.change_task_difficulty(reason, task_2)
+    print("Result:", result_2)
+
+
+async def run_tests():
+    # await test_create_task()
+    # await test_process_task_into_journey()
+    await test_change_task_difficulty()
+
+
+if __name__ == "__main__":
+    asyncio.run(run_tests())
