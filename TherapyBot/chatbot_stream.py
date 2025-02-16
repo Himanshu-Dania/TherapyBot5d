@@ -1,85 +1,45 @@
 import pickle
 from transformers import pipeline
+
 # import faiss
 import time
 import numpy as np
-from transformers import AutoTokenizer, AutoModelForCausalLM
+
+# from transformers import AutoTokenizer, AutoModelForCausalLM
 import json
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+# from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import asyncio
-import os
 import torch
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
 from langchain_core.prompts import PromptTemplate
+import sys
+import os
+
+# Points to the parent directory containing EmotionBot, StrategyBot, TherapyBot
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
+
+# Now you can import directly
+from TherapyBot.prompts import chat_prompt
+from EmotionBot.bot import emotion_detection
+from StrategyBot.bot import predict_therapy_strategy
 
 
 class Chatbot:
     def __init__(self):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        self.emotion_model = pipeline(task="text-classification", model="SamLowe/roberta-base-go_emotions", top_k=None)
-
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-pro",
             api_key=os.getenv("GOOGLE_API_KEY1"),
         )
-        prompt = """
-        You are a highly empathetic and skilled mental health assistant, trained to provide thoughtful and personalized support. Analyze the user's query and craft a compassionate, actionable response using the following inputs:
-
-        **Chat History:** "{history}"
-        **User Input Query:** "{query}"
-
-        **Detected Emotion:** {emotion_result}  
-        (*This represents the user's emotional state.*)
-
-        Figure out the specific mental health problem or concern the user might be facing (e.g., depression, anxiety, loneliness, self-esteem issues, identity crisis, etc.).
-        
-        Use one of the following Therapy Strategies to help the user. You can choose the most suitable strategy based on the user's query and emotional state or use a mix of multiple strategies.
-        Questioning to make them open up: Asking open-ended questions to help the user express themselves.
-        Restatement or Paraphrasing: Rephrasing the user’s statements to ensure understanding and validation.
-        Reflection of feelings: Mirroring the user’s emotions to show empathy and understanding.
-        Self-disclosure: Sharing relevant personal experiences to build rapport and provide perspective.
-        Affirmation and Reassurance: Providing positive reinforcement and comfort to instill hope.
-        Providing Suggestions: Offering actionable advice or steps to address their issues.
-        Cognitive Restructuring: Helping the user identify and reframe negative thought patterns.
-        Psychoeducation: Educating the user about their mental health concerns to foster understanding.
-        Mindfulness and Grounding Techniques: Guiding the user to focus on the present moment to manage overwhelming emotions.
-        Encouraging Self-Compassion: Helping the user be kinder to themselves in difficult situations.
-        Problem-Solving Therapy: Identifying practical solutions to specific problems.
-        Gratitude Focus: Encouraging the user to identify and focus on positive aspects of their life.
-        
-        Do not disclose this information to the user. Only use this to answer the user's question.
-        **Contextual Information:**  
-        - Assume the user seeks comfort, guidance, and actionable steps to address their concerns.  
-        - Ensure your tone is empathetic, understanding, and reassuring.  
-        - Keep your response clear and concise, avoiding jargon but providing meaningful advice.
-
-        ### **Your Task:**  
-        Based on the information provided, craft a response that:  
-        1. Acknowledges the user's emotions and validates their feelings.  
-        2. Addresses the identified problem in a thoughtful manner.  
-        3. Implements the suggested therapy strategy effectively.  
-        4. Offers actionable advice or support to guide the user.  
-        5. Keep the language non-repetitive and engaging.
-        6. Explore user's feelings slowly. Let them approach situations at their own pace.
-        7. If you're asking questions, keep it to a minimum.
-        
-        Now, based on the information above, generate a response that fulfills the user's emotional and mental health needs.
-        """
-        self.prompt=PromptTemplate.from_template(prompt)
+        self.prompt = chat_prompt
         self.chain = self.prompt | self.llm
         self.history = []
+
         print("Initialised\n")
-
-    async def emotion_detection(self, query):
-        """
-        Detects the emotion in the input query using the 'SamLowe/roberta-base-go_emotions' model.
-        """
-        print("Emotion\n")
-        results = self.emotion_model(query, top_k=3)
-
-        return results
 
     async def gemini(self, query):
         """
@@ -93,22 +53,49 @@ class Chatbot:
             A string representing the LLM response with streaming.
         """
 
-        emotion_task = self.emotion_detection(query)
+        emotion_result = emotion_detection(query)
 
-        emotion_result = await asyncio.gather(emotion_task)
+        self.history.append({"role": "usr", "content": query})
+        strategy_result = predict_therapy_strategy(self.history[-8:])
+        emotion_result, strategy_result = await asyncio.gather(
+            emotion_result, strategy_result
+        )
+
+        (reasoning, strategy_list) = strategy_result
 
         print("Processing with LLM...")
 
-        history_summary = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in self.history[-15:]])
-        print(f" Query: {query}\nEmotion: {emotion_result}\nHistory: {history_summary}\n")
+        history_summary = "\n".join(
+            [f"{msg['role']}: {msg['content']}" for msg in self.history[-8:]]
+        )
+
+        print(
+            f"Emotion: {emotion_result}\n\nStrategy: {reasoning}\n\n{strategy_list}\n\n"
+        )
+        # print("History Summary: ", self.history[-8:])
         response_text = ""
         try:
-            async for token in self.chain.astream({"query": query, "emotion_result": emotion_result, "history": history_summary}):
+            async for token in self.chain.astream(
+                {
+                    "query": query,
+                    "emotion_result": emotion_result,
+                    "history": history_summary,
+                    "reasoning_for_strategy": reasoning,
+                    "strategy_result": strategy_list,
+                }
+            ):  # Stream the response tokens
                 yield token.content  # Yield each token's content as it is generated
                 response_text += token.content
 
-            self.history.append({"role": "user", "content": query})
-            self.history.append({"role": "assistant", "content": response_text})  # Store chatbot response
+            self.history[-1].update({"emotion": emotion_result})
+            self.history.append(
+                {
+                    "role": "sys",
+                    "strategy": strategy_list,
+                    "content": response_text,
+                }
+            )  # Store chatbot response
+            # print(self.history)
         except Exception as e:
             yield f"Error: {str(e)}"
 

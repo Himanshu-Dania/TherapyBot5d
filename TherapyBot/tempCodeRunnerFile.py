@@ -1,0 +1,1 @@
+print("History Summary: ", self.history[-8:])

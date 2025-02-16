@@ -1,3 +1,10 @@
+import sys
+import os
+
+# Points to the parent directory containing EmotionBot, StrategyBot, TherapyBot
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 import asyncio
@@ -6,7 +13,7 @@ from transformers import pipeline
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
 import json
-from chatbot_stream import Chatbot
+from TherapyBot.chatbot_stream import Chatbot
 
 app = FastAPI()
 

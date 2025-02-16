@@ -1,7 +1,7 @@
 import asyncio
 import json
 from utils import json_task, Task, Journey
-from taskbot import Taskbot
+from TaskBot.bot import Taskbot
 
 
 async def test_create_task():

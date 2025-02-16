@@ -1,38 +1,34 @@
+import sys
 import os
+
+# Points to the parent directory containing EmotionBot, StrategyBot, TherapyBot
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
+
 import google.generativeai as genai
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from StrategyBot.utils import format_conversation
+import re
 
+api_key = os.getenv("GOOGLE_API_KEY1")
+genai.configure(api_key=api_key)
+# print("API Key set")
+# Create the model
+generation_config = {
+    "temperature": 0.25,
+    "top_p": 0.95,
+    "top_k": 40,
+    "max_output_tokens": 768,
+    "response_mime_type": "text/plain",
+}
 
-async def predict_therapy_strategy(user_message: str, api_key: str):
-    """
-    Predicts therapy strategies based on conversation history using Gemini API.
-
-    Args:
-        user_message (str): The latest message in the conversation to analyze
-        api_key (str): Gemini API key
-
-    Returns:
-        str: The API response containing predicted therapy strategies
-    """
-    try:
-        genai.configure(api_key=api_key)
-
-        # Create the model
-        generation_config = {
-            "temperature": 0.25,
-            "top_p": 0.95,
-            "top_k": 40,
-            "max_output_tokens": 768,
-            "response_mime_type": "text/plain",
-        }
-
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash-8b",
-            generation_config=generation_config,
-        )
-
-        system_prompt = """Your task is to analyze a conversation and predict the therapy strategy to be respond to the newest user message. Before giving your final answer, explain your reasoning step-by-step, showing how earlier parts of the conversation led to your prediction. The possible strategies are: Question, Restatement or Paraphrasing, Reflection of feelings, Self-disclosure, Affirmation and Reassurance, Providing Suggestions, Information, and Others. Finally, output the final predicted strategies as a comma-separated list. Try not to use too many strategies at once.
+model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash-8b",
+    generation_config=generation_config,
+)
+# print("model set")
+system_prompt = """Your task is to analyze a conversation and predict the therapy strategy to be respond to the newest user message. Before giving your final answer, explain your reasoning step-by-step, showing how earlier parts of the conversation led to your prediction. The possible strategies are: Question, Restatement or Paraphrasing, Reflection of feelings, Self-disclosure, Affirmation and Reassurance, Providing Suggestions, Information, and Others. Finally, output the final predicted strategies as a comma-separated list. Try not to use too many strategies at once.
 
 Examples:
 
@@ -127,23 +123,52 @@ Final Answer: Information, Reflection of feelings
 Based on the above, predict the strategies for the following conversation.
 
 Input:\n"""
-        chat_session = model.start_chat(
-            history=[
-                {
-                    "role": "user",
-                    "parts": [system_prompt],
-                },
-            ]
-        )
+chat_session = model.start_chat(
+    history=[
+        {
+            "role": "user",
+            "parts": [system_prompt],
+        },
+    ]
+)
 
+
+async def predict_therapy_strategy(history: list):
+    """
+    Predicts therapy strategies based on conversation history using Gemini API.
+
+    Args:
+        user_message (str): The latest message in the conversation to analyze
+        api_key (str): Gemini API key
+
+    Returns:
+        str: The API response containing predicted therapy strategies
+    """
+    try:
+
+        conversation = format_conversation(history)
         # Since send_message is not actually async, we'll run it in a thread pool
+        # print(conversation)
         loop = asyncio.get_event_loop()
         with ThreadPoolExecutor() as pool:
             response = await loop.run_in_executor(
-                pool, chat_session.send_message, user_message
+                pool, chat_session.send_message, conversation
             )
+            # print(response)
+        pattern = re.compile(
+            r"(?s)Reasoning:\s*(?P<reasoning>.*?)\s*Final Answer:\s*(?P<strategy>.+)$"
+        )
 
-        return response.text
+        match = pattern.search(response.text)
+        # print(match)
+        reasoning = ""
+        strategy_list = []
+        if match:
+            reasoning = match.group("reasoning").strip()
+            # Split the strategy string by comma and strip each element
+            strategy_list = [s.strip() for s in match.group("strategy").split(",")]
+            # print(reasoning, strategy_list)
+        return (reasoning, strategy_list)
 
     except KeyError as e:
         raise ValueError(f"Missing required API key: {str(e)}")
@@ -152,25 +177,46 @@ Input:\n"""
 
 
 # Example usage:
-async def main():
-    # Get API key from environment variable or set it directly
-    api_key = os.getenv(
-        "GOOGLE_API_KEY1"
-    )  # Make sure this matches your environment variable name
+async def __main__():
+
     if not api_key:
         raise ValueError("Please set the GOOGLE_API_KEY environment variable")
 
-    conversation = """sys(Self-disclosure, Affirmation and Reassurance): It's like we live the same life. I also have no car to escape! It seems so small, but it's such a huge stressor when you feel trapped in an environment you're not positive in.I feel your pain and I empathize with you completely. It'll be hard but I hope you can make it through it throughout the holidays and enjoy yourself some. Are there any pros to going back home? Any pets?
-usr: Thank you I appreciate that. I will be fine making it over the thanksgiving break but I am more nervous about covid-19 sending us home for good. Not many to be honest. I have a hamster but he is at school with me so nothing at home to go back to
-sys(Restatement or Paraphrasing, Providing Suggestions): It sounds like Covid- 19 is going to be a personal stressor for you. It's such a strange thing to have to live with already, the pandemic, and i'm sorry that it might end up pushing you where you don't want to be. Could you bring your hamster home with you? Even the smallest things could help a place feel more loving
-usr: Yes it is very strange and I know that it is a big stressor on all of us, i don't want to sound selfish. Yes i am bringing him home with me so that is my little piece of joy that is coming along"""
+    history = [
+        {
+            "role": "sys",
+            "strategy": ["Question"],
+            "content": "Hello! Hope you are doing well. How may I assist you?",
+        },
+        {
+            "role": "usr",
+            "emotion": ["sad", "grief", "remorse"],
+            "content": "My recent ex-girlfriend gave her daughters drugs while on a video chat with me. While being very dishonest in our relationship, I am devastated about the truth of all of it now that it's over. I really loved her and her kids; we had some great times.",
+        },
+        {
+            "role": "sys",
+            "strategy": ["Restatement or Paraphrasing"],
+            "content": "Your ex-girlfriend gave drugs to her own kids. Did I get that right?",
+        },
+        {
+            "role": "usr",
+            "emotion": ["annoyance"],
+            "content": "That is what she did. Among many other things.",
+        },
+    ]
+
+    #     conversation = """sys(Self-disclosure, Affirmation and Reassurance): It's like we live the same life. I also have no car to escape! It seems so small, but it's such a huge stressor when you feel trapped in an environment you're not positive in.I feel your pain and I empathize with you completely. It'll be hard but I hope you can make it through it throughout the holidays and enjoy yourself some. Are there any pros to going back home? Any pets?
+    # usr: Thank you I appreciate that. I will be fine making it over the thanksgiving break but I am more nervous about covid-19 sending us home for good. Not many to be honest. I have a hamster but he is at school with me so nothing at home to go back to
+    # sys(Restatement or Paraphrasing, Providing Suggestions): It sounds like Covid- 19 is going to be a personal stressor for you. It's such a strange thing to have to live with already, the pandemic, and i'm sorry that it might end up pushing you where you don't want to be. Could you bring your hamster home with you? Even the smallest things could help a place feel more loving
+    # usr: Yes it is very strange and I know that it is a big stressor on all of us, i don't want to sound selfish. Yes i am bringing him home with me so that is my little piece of joy that is coming along"""
 
     try:
-        response = await predict_therapy_strategy(conversation, api_key)
-        print(response)
+        (reasoning, strategy) = await predict_therapy_strategy(history)
+        print(reasoning)
+        print(strategy)
     except Exception as e:
         print(f"Error: {str(e)}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(__main__())

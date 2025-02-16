@@ -144,23 +144,6 @@ if __name__ == "__main__":
         completed=30,
         difficulty="easy",
     )
-    print(
-        Journey(
-            journey_name="Mindfulness Journey",
-            description="Tasks for mental calmness",
-            task=[
-                json_task(
-                    "Morning Meditation",
-                    "slider",
-                    "To develop mindfulness",
-                    "Meditate for 10 minutes",
-                    "easy",
-                    completed=10,
-                )
-            ],
-            difficulty="easy",
-        )
-    )
     # Create a journey with the tasks
     journey = Journey(
         journey_name="Daily Routines for mental health and well-being improvement",
