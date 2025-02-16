@@ -150,8 +150,8 @@ async def test_change_task_difficulty():
 
 
 async def run_tests():
-    # await test_create_task()
-    # await test_process_task_into_journey()
+    await test_create_task()
+    await test_process_task_into_journey()
     await test_change_task_difficulty()
 
 
