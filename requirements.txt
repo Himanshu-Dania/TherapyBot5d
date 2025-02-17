@@ -9,7 +9,7 @@ langchain_core==0.3.35
 langchain_google_genai==2.0.9
 langchain_huggingface==0.1.2
 networkx==3.4.2
-numpy==2.2.3
+# numpy==2.2.3
 protobuf==5.29.3
 pydantic==2.10.6
 pypdf==5.3.0
