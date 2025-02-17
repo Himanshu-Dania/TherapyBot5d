@@ -1,4 +1,7 @@
 from typing import List, Dict, Optional, Union
+from langchain_core.prompts import PromptTemplate
+from langchain.memory import ChatMessageHistory
+from langchain_core.prompts.chat import HumanMessage, SystemMessage, AIMessage
 
 
 def format_conversation(messages: List[Dict]) -> str:
@@ -66,30 +69,61 @@ def format_conversation(messages: List[Dict]) -> str:
     return "\n".join(formatted_messages)
 
 
+from langchain.schema import HumanMessage, AIMessage, SystemMessage
+import re
+
+
+def extract_strategies(system_message):
+    match = re.search(r"strategy_list: \[(.*?)\]", system_message.content)
+    return match.group(1) if match else ""
+
+
+def format_messages(messages):
+    formatted_output = []
+    strategies = ""
+
+    for i, msg in enumerate(messages):
+        if isinstance(msg, SystemMessage):
+            strategies = extract_strategies(msg)
+        elif isinstance(msg, HumanMessage):
+            formatted_output.append(f"usr: {msg.content}")
+        elif isinstance(msg, AIMessage):
+            if strategies:
+                formatted_output.append(f"sys({strategies}): {msg.content}")
+                strategies = ""
+            else:
+                formatted_output.append(f"sys: {msg.content}")
+    return "\n".join(formatted_output)
+
+
+# print(format_messages(messages))
+
+
 # Example usage:
 if __name__ == "__main__":
-    example_conversation = [
-        {
-            "role": "sys",
-            "strategy": ["Question", "Reflection of feelings"],
-            "content": "How are you feeling today? I can sense that you're dealing with a lot.",
-        },
-        {"role": "usr", "content": "I'm feeling a bit anxious"},
-        {
-            "role": "sys",
-            "strategy": ["Others"],  # System message with no strategy
-            "content": "Tell me more about that",
-        },
-        {
-            "role": "usr",
-            "content": "It's completely normal to feel this way. Have you tried any relaxation techniques?",
-        },
+    # Example usage
+    messages = [
+        HumanMessage(content="hi how"),
+        SystemMessage(
+            content='emotion_result: [], strategy_list: [X, Y, Z], reasoning_for_strategy: "dbak"'
+        ),
+        AIMessage(
+            content="Hi there. How are you doing today?  I'm here if you'd like to talk about anything."
+        ),
+        HumanMessage(content="good"),
+        SystemMessage(
+            content='emotion_result: [], strategy_list: [X, Y, Z], reasoning_for_strategy: "dbak"'
+        ),
+        AIMessage(
+            content="I'm glad to hear that. Is there anything in particular you'd like to chat about today, or are you just checking in?  I'm happy to listen either way."
+        ),
+        HumanMessage(content="nothing"),
+        SystemMessage(
+            content='emotion_result: [], strategy_list: [X, Y], reasoning_for_strategy: "dbak"'
+        ),
+        AIMessage(
+            content="Okay. Sometimes it's nice just to connect, even if there's nothing specific to discuss.  If you change your mind and want to talk, I'm here.  Perhaps you might want to think about what made you feel good today?  Sometimes reflecting on positive moments can boost our mood even further.  Take care!"
+        ),
     ]
 
-    try:
-        formatted = format_conversation(example_conversation)
-        print("Formatted conversation:")
-        print(formatted)
-
-    except ValueError as e:
-        print(f"Error formatting conversation: {str(e)}")
+    print(format_messages(messages))

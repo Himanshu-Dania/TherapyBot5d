@@ -217,7 +217,7 @@ Your task is to:
 - Change the difficulty of the task based on the reason provided.
 - Output the updated task in JSON format.
 - You can split the task into multiple tasks if needed. If there, output them in a list.
-
+- Make sure to only give out the new task in json and no other information except it.
 Example:
 ```json
 Input:

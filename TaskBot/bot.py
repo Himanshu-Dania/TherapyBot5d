@@ -1,14 +1,23 @@
 # import mongodb
 import time
 import asyncio
+import sys
 import os
+
+# Points to the parent directory containing EmotionBot, StrategyBot, TherapyBot
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage
 import json
 from typing import List
-from utils import Task, Journey, JourneySchema, json_task
+from TaskBot.utils import Task, Journey, JourneySchema, json_task
 from langchain_core.prompts import PromptTemplate
-from prompts import create_task_prompt, journey_prompt_template, task_difficulty_prompt
+from TaskBot.prompts import (
+    create_task_prompt,
+    journey_prompt_template,
+    task_difficulty_prompt,
+)
 
 global load_balancer
 load_balancer = 0
@@ -40,7 +49,7 @@ class Taskbot:
         tasks_json = json.dumps(
             [task.model_dump() for task in tasks], ensure_ascii=False, indent=2
         )
-        print(f"tasks_json: {tasks_json}\nReason: {reason}")
+        # print(f"tasks_json: {tasks_json}\nReason: {reason}")
         attempts = len(self.llms)  # Number of retries = number of available LLMs
         for _ in range(attempts):
             async with load_balancer_lock:

@@ -1,3 +1,9 @@
+import sys
+import os
+
+# Points to the parent directory containing EmotionBot, StrategyBot, TherapyBot
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
 from pydantic import BaseModel, Field
 import json
 from typing import List, Union
@@ -39,6 +45,12 @@ class SliderTask(Task):
     completed: float = Field(
         0.0, description="Number of times the task has been completed."
     )
+
+
+class NotebookTask(Task):
+    task_type: str = "notebook"
+    note_content: str = Field("", description="Notebook content")
+    completed: bool = Field(False, description="Whether the task has been completed.")
 
 
 class CheckmarkTask(Task):
@@ -162,3 +174,24 @@ if __name__ == "__main__":
     journey_schema = JourneySchema(journeys=[journey2, journey])
     # Print the TaskSchema to check its structure
     print(journey_schema.model_dump_json(indent=2))
+
+if __name__ == "__main__":
+    print(
+        json_task(
+            "Morning Walk",
+            "discrete",
+            "User struggles with negative thoughts about their physical health",
+            "Walk for 30 minutes every morning",
+            "medium",
+            completed=2,
+            total_count=10,
+        ),
+        json_task(
+            "Weight Lifting",
+            "slider",
+            "To build muscle",
+            "Lift weights for 30 minutes",
+            "hard",
+            completed=0,
+        ),
+    )

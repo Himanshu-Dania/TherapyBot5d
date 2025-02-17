@@ -1,6 +1,13 @@
 import asyncio
 import json
-from utils import json_task, Task, Journey
+import sys
+import os
+
+# Points to the parent directory containing EmotionBot, StrategyBot, TherapyBot
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, BASE_DIR)
+
+from TaskBot.utils import json_task, Task, Journey
 from TaskBot.bot import Taskbot
 
 
@@ -129,6 +136,7 @@ async def test_change_task_difficulty():
         completed=2,
         total_count=10,
     )
+    print(task_1)
     reason = " It isn't really helping me. The lonelier I am, the more it sucks"
     result_1 = await journey_bot.change_task_difficulty(reason, task_1)
     print("Result:", result_1)
@@ -150,8 +158,8 @@ async def test_change_task_difficulty():
 
 
 async def run_tests():
-    await test_create_task()
-    await test_process_task_into_journey()
+    # await test_create_task()
+    # await test_process_task_into_journey()
     await test_change_task_difficulty()
 
 

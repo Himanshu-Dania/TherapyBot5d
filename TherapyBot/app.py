@@ -1,5 +1,6 @@
 import sys
 import os
+import uvicorn
 
 # Points to the parent directory containing EmotionBot, StrategyBot, TherapyBot
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,8 +28,18 @@ chat_store = None
 @app.get("/")
 async def home():
     """Serve the static HTML file"""
-    with open("static/chatbot_stream.html", "r") as f:
-        return HTMLResponse(content=f.read())
+    base_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of app.py
+    file_path = os.path.join(
+        base_dir, "static", "chatbot_stream.html"
+    )  # Construct absolute path
+
+    try:
+        with open(file_path, "r") as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="Error: chatbot_stream.html not found", status_code=500
+        )
 
 
 @app.post("/chat")
@@ -71,3 +82,12 @@ async def chat_stream():
             yield f"data: Error occurred: {str(e)}\n\n"
 
     return StreamingResponse(stream_response(), media_type="text/event-stream")
+
+
+def main():
+    """Run the FastAPI app on the local network"""
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+if __name__ == "__main__":
+    main()

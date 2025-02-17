@@ -8,7 +8,7 @@ sys.path.insert(0, BASE_DIR)
 import google.generativeai as genai
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from StrategyBot.utils import format_conversation
+from StrategyBot.utils import format_conversation, format_messages
 import re
 
 api_key = os.getenv("GOOGLE_API_KEY1")
@@ -145,8 +145,11 @@ async def predict_therapy_strategy(history: list):
         str: The API response containing predicted therapy strategies
     """
     try:
-
-        conversation = format_conversation(history)
+        conversation = ""
+        if not isinstance(history[0], dict):
+            conversation = format_messages(history)
+        else:
+            conversation = format_conversation(history)
         # Since send_message is not actually async, we'll run it in a thread pool
         # print(conversation)
         loop = asyncio.get_event_loop()
@@ -182,35 +185,34 @@ async def __main__():
     if not api_key:
         raise ValueError("Please set the GOOGLE_API_KEY environment variable")
 
-    # history = [
-    #     {
-    #         "role": "sys",
-    #         "strategy": ["Question"],
-    #         "content": "Hello! Hope you are doing well. How may I assist you?",
-    #     },
-    #     {
-    #         "role": "usr",
-    #         "emotion": ["sad", "grief", "remorse"],
-    #         "content": "My recent ex-girlfriend gave her daughters drugs while on a video chat with me. While being very dishonest in our relationship, I am devastated about the truth of all of it now that it's over. I really loved her and her kids; we had some great times.",
-    #     },
-    #     {
-    #         "role": "sys",
-    #         "strategy": ["Restatement or Paraphrasing"],
-    #         "content": "Your ex-girlfriend gave drugs to her own kids. Did I get that right?",
-    #     },
-    #     {
-    #         "role": "usr",
-    #         "emotion": ["annoyance"],
-    #         "content": "That is what she did. Among many other things.",
-    #     },
-    # ]
+    history = [
+        {
+            "role": "sys",
+            "strategy": ["Question"],
+            "content": "Hello! Hope you are doing well. How may I assist you?",
+        },
+        {
+            "role": "usr",
+            "emotion": ["sad", "grief", "remorse"],
+            "content": "My recent ex-girlfriend gave her daughters drugs while on a video chat with me. While being very dishonest in our relationship, I am devastated about the truth of all of it now that it's over. I really loved her and her kids; we had some great times.",
+        },
+        {
+            "role": "sys",
+            "strategy": ["Restatement or Paraphrasing"],
+            "content": "Your ex-girlfriend gave drugs to her own kids. Did I get that right?",
+        },
+        {
+            "role": "usr",
+            "emotion": ["annoyance"],
+            "content": "That is what she did. Among many other things.",
+        },
+    ]
 
     #     conversation = """sys(Self-disclosure, Affirmation and Reassurance): It's like we live the same life. I also have no car to escape! It seems so small, but it's such a huge stressor when you feel trapped in an environment you're not positive in.I feel your pain and I empathize with you completely. It'll be hard but I hope you can make it through it throughout the holidays and enjoy yourself some. Are there any pros to going back home? Any pets?
     # usr: Thank you I appreciate that. I will be fine making it over the thanksgiving break but I am more nervous about covid-19 sending us home for good. Not many to be honest. I have a hamster but he is at school with me so nothing at home to go back to
     # sys(Restatement or Paraphrasing, Providing Suggestions): It sounds like Covid- 19 is going to be a personal stressor for you. It's such a strange thing to have to live with already, the pandemic, and i'm sorry that it might end up pushing you where you don't want to be. Could you bring your hamster home with you? Even the smallest things could help a place feel more loving
     # usr: Yes it is very strange and I know that it is a big stressor on all of us, i don't want to sound selfish. Yes i am bringing him home with me so that is my little piece of joy that is coming along"""
 
-    history = [{"role": "usr", "content": "I am feeling depressed because of my mom"}]
     try:
         (reasoning, strategy) = await predict_therapy_strategy(history)
         print(reasoning)
