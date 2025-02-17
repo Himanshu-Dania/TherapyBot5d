@@ -11,3 +11,7 @@ __pycache__/
 # Ignore datasets and logs
 *.zip
 logs/
+
+User_Embeddings/
+
+books_chroma_db/

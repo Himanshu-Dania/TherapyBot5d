@@ -68,25 +68,23 @@ def format_conversation(messages: List[Dict]) -> str:
 
 # Example usage:
 if __name__ == "__main__":
-    # example_conversation = [
-    #     {
-    #         "role": "sys",
-    #         "strategy": ["Question", "Reflection of feelings"],
-    #         "content": "How are you feeling today? I can sense that you're dealing with a lot.",
-    #     },
-    #     {"role": "usr", "content": "I'm feeling a bit anxious"},
-    #     {
-    #         "role": "sys",
-    #         "strategy": ["Others"],  # System message with no strategy
-    #         "content": "Tell me more about that",
-    #     },
-    #     {
-    #         "role": "usr",
-    #         "content": "It's completely normal to feel this way. Have you tried any relaxation techniques?",
-    #     },
-    # ]
-
-    example_conversation = [{"role": "usr", "content": "h"}]
+    example_conversation = [
+        {
+            "role": "sys",
+            "strategy": ["Question", "Reflection of feelings"],
+            "content": "How are you feeling today? I can sense that you're dealing with a lot.",
+        },
+        {"role": "usr", "content": "I'm feeling a bit anxious"},
+        {
+            "role": "sys",
+            "strategy": ["Others"],  # System message with no strategy
+            "content": "Tell me more about that",
+        },
+        {
+            "role": "usr",
+            "content": "It's completely normal to feel this way. Have you tried any relaxation techniques?",
+        },
+    ]
 
     try:
         formatted = format_conversation(example_conversation)
