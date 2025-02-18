@@ -2,6 +2,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_core.documents import Document
 import asyncio
+import torch
 
 persist_directory = "User_Embeddings"
 collection_name = "interests"
@@ -10,7 +11,8 @@ model_name = "sentence-transformers/all-mpnet-base-v2"
 # 1) Create embeddings using Hugging Face Sentence Transformer
 print(f"[INFO] Using model: {model_name}")
 embeddings = HuggingFaceEmbeddings(
-    model_name=model_name, model_kwargs={"device": "cpu"}
+    model_name=model_name,
+    model_kwargs={"device": "cuda" if torch.cuda.is_available() else "cpu"},
 )
 #    ^ Change 'device' to 'cuda' if you have a GPU and the model supports it.
 

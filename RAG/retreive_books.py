@@ -1,10 +1,13 @@
 from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
+import torch
+import os
 
 # 1) Set up your embedding model
 embedding_model = "sentence-transformers/all-mpnet-base-v2"
 embeddings = HuggingFaceEmbeddings(
-    model_name=embedding_model, model_kwargs={"device": "cuda"}
+    model_name=embedding_model,
+    model_kwargs={"device": "cuda" if torch.cuda.is_available() else "cpu"},
 )
 
 # 2) Load the existing Chroma DB from the local folder

@@ -215,8 +215,8 @@ async def __main__():
 
     try:
         (reasoning, strategy) = await predict_therapy_strategy(history)
-        print(reasoning)
-        print(strategy)
+        # print(reasoning)
+        # print(strategy)
     except Exception as e:
         print(f"Error: {str(e)}")
 
