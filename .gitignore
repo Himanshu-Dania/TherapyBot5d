@@ -1,17 +1,56 @@
-# Ignore virtual environments
-venv/
+# Node.js
+Backend/node_modules/
+frontend/node_modules/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Ignore compiled Python files
-__pycache__/
-*.pyc
-
-# Ignore environment variables
+# Environment variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Ignore datasets and logs
-*.zip
+# Build outputs
+frontend/build/
+dist/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
 logs/
+*.log
 
+# Test coverage
+coverage/
+
+# Python 
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+*.so
+.Python
+.pytest_cache/
+
+# Application specific
 User_Embeddings/
-
 books_chroma_db/
+uploads/*
+!uploads/.gitkeep
+README_for_tasks.md
+*.zip
+
+# Temporary files
+*.tmp
+.temp/
